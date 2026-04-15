@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="leaflet.css">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero">
+            <div>
+                <p class="eyebrow">Daily global monitoring dashboard</p>
+                <h1>{{ app_name }}</h1>
+                <p class="hero-copy">
+                    Track geopolitics, war, crime, and regional developments from one clean dashboard.
+                    Headlines only, short snippets only, and links back to the original publishers.
+                </p>
+            </div>
+            <div class="hero-actions">
+                <button id="refreshButton" class="primary-button">Refresh News</button>
+                <button id="telegramButton" class="secondary-button">Send to Telegram</button>
+            </div>
+        </header>
+
+        <nav class="top-nav panel">
+            <button class="nav-tab active" data-view="dashboard">Dashboard</button>
+            <button class="nav-tab" data-view="visualizations">Visualizations</button>
+        </nav>
+
+        <main id="dashboardView" class="view-section active-view">
+            <section class="panel analytics-panel">
+                <h3>Global Intelligence Metrics</h3>
+                <div class="analytics-grid">
+                    <div class="analytics-box">
+                        <span id="metricArticles">0</span>
+                        <p>Articles Today</p>
+                    </div>
+                    <div class="analytics-box">
+                        <span id="metricHighRisk">0</span>
+                        <p>High Risk Stories</p>
+                    </div>
+                    <div class="analytics-box">
+                        <span id="metricSources">0</span>
+                        <p>Active Sources</p>
+                    </div>
+                    <div class="analytics-box">
+                        <span id="metricStrategic">0</span>
+                        <p>Strategic Articles</p>
+                    </div>
+                    <div class="analytics-box">
+                        <span id="metricIndiaImpact">0</span>
+                        <p>High India Impact</p>
+                    </div>
+                    <div class="analytics-box">
+                        <span id="metricSourceGroups">0</span>
+                        <p>Source Groups</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="risk-banner">
+                Global Risk Monitor Active | Tracking geopolitical and security developments
+            </section>
+
+            <section class="ticker">
+                <div class="breaking-news">
+                    <span class="live-dot"></span>
+                    <span class="live-text">LIVE</span>
+                <div id="breakingTicker" class="ticker-track"></div>
+                </div>
+            </section>
+
+            <section class="panel digest-panel">
+                <div class="section-title-row">
+                    <div>
+                        <p class="section-kicker">Daily digest</p>
+                        <h2>Today's Global Security Focus</h2>
+                    </div>
+                    <span id="statusBadge" class="status-badge">Waiting for first refresh</span>
+                </div>
+                <p id="securityFocus" class="security-focus">Refresh the news to build today's security focus.</p>
+                <p id="dailySummary" class="daily-summary">No summary yet.</p>
+                <div>
+                    <h3>Top 10 stories of the day</h3>
+                    <div id="topStories" class="top-stories"></div>
+                </div>
+            </section>
+
+            <section class="panel india-impact-panel">
+                <div class="section-title-row">
+                    <div>
+                        <p class="section-kicker">India strategic impact</p>
+                        <h2>Why global events matter for India</h2>
+                    </div>
+                    <span id="indiaImpactBadge" class="status-badge">Monitoring India-linked risk</span>
+                </div>
+                <p id="indiaFocus" class="security-focus">Refresh the news to generate India impact analysis.</p>
+                <div id="indiaImpactReasons" class="prediction-notes"></div>
+            </section>
+
+            <section class="panel controls-panel">
+                <div class="search-row">
+                    <input id="searchInput" type="text" placeholder="Search headlines, keywords...">
+                </div>
+
+                <div>
+                    <h3>Category filters</h3>
+                    <div id="categoryFilters" class="filter-grid">
+                        {% for category in categories %}
+                        <button class="filter-chip {% if category == 'World' %}active{% endif %}" data-category="{{ category }}">
+                            {{ category }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div>
+                    <h3>Region filters</h3>
+                    <div id="regionFilters" class="filter-grid">
+                        <button class="filter-chip active" data-region="">All Regions</button>
+                        {% for category in categories if category != 'World' and category != 'Geopolitics' and category != 'War' and category != 'Crime' %}
+                        <button class="filter-chip" data-region="{{ category }}">{{ category }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="section-title-row">
+                    <div>
+                        <p class="section-kicker">Live feed</p>
+                        <h2 id="newsHeading">World Headlines</h2>
+                    </div>
+                    <p id="resultsCount" class="results-count">0 articles</p>
+                </div>
+                <div id="messageBox" class="message-box hidden"></div>
+                <div id="articlesGrid" class="articles-grid"></div>
+                <div id="emptyState" class="empty-state hidden">
+                    <h3>No articles found</h3>
+                    <p>Try a different category, region, or search keyword.</p>
+                </div>
+            </section>
+        </main>
+
+        <main id="visualizationsView" class="view-section hidden">
+            <section class="panel visualization-hero">
+                <div>
+                    <p class="section-kicker">Analysis workspace</p>
+                    <h2>Visual Intelligence Overview</h2>
+                    <p class="daily-summary">
+                        Use these charts to understand where stories are clustering, which risk levels are rising,
+                        and what the current news flow suggests about short-term momentum.
+                    </p>
+                </div>
+                <div class="prediction-card">
+                    <p class="prediction-label">Current Outlook</p>
+                    <h3 id="predictionTitle">Waiting for data</h3>
+                    <p id="predictionSummary" class="daily-summary">Refresh news to generate a trend outlook.</p>
+                    <span id="predictionTag" class="prediction-tag neutral">No signal</span>
+                </div>
+            </section>
+
+            <section class="chart-grid">
+                <article class="panel chart-panel full-width">
+                    <h3>Global Conflict Heat Map</h3>
+                    <div id="conflictHeatMap" class="map-panel"></div>
+                </article>
+                <article class="panel chart-panel">
+                    <h3>Risk Distribution</h3>
+                    <canvas id="riskChart"></canvas>
+                </article>
+                <article class="panel chart-panel">
+                    <h3>Articles by Region</h3>
+                    <canvas id="regionChart"></canvas>
+                </article>
+                <article class="panel chart-panel">
+                    <h3>Articles by Category Focus</h3>
+                    <canvas id="categoryChart"></canvas>
+                </article>
+                <article class="panel chart-panel">
+                    <h3>India Impact Distribution</h3>
+                    <canvas id="indiaImpactChart"></canvas>
+                </article>
+                <article class="panel chart-panel">
+                    <h3>Source Group Distribution</h3>
+                    <canvas id="sourceGroupChart"></canvas>
+                </article>
+                <article class="panel chart-panel">
+                    <h3>Risk Trend Over Time</h3>
+                    <canvas id="riskTrendChart"></canvas>
+                </article>
+            </section>
+
+            <section class="panel outlook-panel">
+                <div class="section-title-row">
+                    <div>
+                        <p class="section-kicker">Interpretation</p>
+                        <h2>Prediction and trend notes</h2>
+                    </div>
+                </div>
+                <div id="predictionNotes" class="prediction-notes"></div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        window.APP_CONFIG = {
+            defaultCategory: "World"
+        };
+    </script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', path='/js/app.js') }}"></script>
+    
+</body>
+
+<footer class="footer">
+    <div class="footer-content">
+        <p>© 2026 Geopolitical Intelligence Dashboard</p>
+
+        <div class="footer-links">
+            <a href="https://github.com/dhruvDS13" target="_blank">
+                <i class="fa-brands fa-github"></i> GitHub
+            </a>
+
+            <a href="https://www.linkedin.com/in/dhruv-kumar-singh-51a86725a/" target="_blank">
+                <i class="fa-brands fa-linkedin"></i> LinkedIn
+            </a>
+
+            <a class="telegram-btn" href="https://t.me/WAU_NewsBot?start=subscribe" target="_blank">
+                <i class="fa-brands fa-telegram"></i> Get Daily Updates
+            </a>
+        </div>
+    </div>
+</footer>
+
+</html>
