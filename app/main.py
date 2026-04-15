@@ -14,7 +14,7 @@ from app.services.summary_service import build_daily_summary, format_telegram_di
 from app.services.telegram_service import send_telegram_message, telegram_ready
 import threading
 from app.services.telegram_service import run_bot
-from fastapi import FastAPI
+
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -57,17 +57,27 @@ def filter_articles(articles, search="", region="", category=""):
 
 
 async def refresh_news_cache():
-    # Refresh everything once, then let the frontend slice and search locally through the API.
-    grouped = await fetch_all_articles()
-    all_articles = grouped.get("World", [])
-    save_articles(all_articles)
-    NEWS_CACHE["articles_by_category"] = grouped
-    NEWS_CACHE["summary"] = build_daily_summary(all_articles)
-    NEWS_CACHE["last_error"] = (
-        ""
-        if all_articles
-        else "No articles were fetched. Check your internet access, verify RSS feeds are reachable on your machine, and add NEWSAPI_KEY in .env for a more reliable fallback."
-    )
+    print("🔄 Refreshing news cache...")
+
+    try:
+        grouped = await fetch_all_articles()
+        all_articles = grouped.get("World", [])
+
+        save_articles(all_articles)
+
+        NEWS_CACHE["articles_by_category"] = grouped
+        NEWS_CACHE["summary"] = build_daily_summary(all_articles)
+
+        NEWS_CACHE["last_error"] = (
+            ""
+            if all_articles
+            else "No articles were fetched. Check RSS/API settings."
+        )
+
+    except Exception as e:
+        print(f"❌ Error refreshing news: {e}")
+        NEWS_CACHE["last_error"] = f"Failed to refresh news: {e}"
+
     return NEWS_CACHE
 
 
@@ -80,11 +90,11 @@ async def scheduled_telegram_delivery():
     except Exception as exc:
         NEWS_CACHE["last_error"] = f"Scheduled Telegram delivery failed: {exc}"
 
+
 @app.on_event("startup")
 async def startup_event():
     init_db()
 
-    # 🔥 ADD THIS LINE (VERY IMPORTANT)
     await refresh_news_cache()
 
     scheduler.add_job(
@@ -96,9 +106,17 @@ async def startup_event():
         replace_existing=True,
     )
 
-    scheduler.start()
+    if not scheduler.running:
+        scheduler.start()
 
-    threading.Thread(target=run_bot, daemon=True).start()
+    def start_bot():
+        try:
+            run_bot()
+        except Exception as e:
+            print(f"Telegram bot error: {e}")
+
+    threading.Thread(target=start_bot, daemon=True).start()
+
 
 
 @app.on_event("shutdown")
