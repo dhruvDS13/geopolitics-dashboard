@@ -4,6 +4,7 @@ from datetime import datetime
 
 def build_daily_summary(articles: list[dict]) -> dict:
     today = datetime.now().strftime("%Y-%m-%d")
+    display_date = datetime.now().strftime("%d-%m-%Y")
     todays_articles = [
         article for article in articles if (article.get("published_at") or "").startswith(today)
     ]
@@ -73,7 +74,7 @@ def build_daily_summary(articles: list[dict]) -> dict:
     }
 
     return {
-        "date": today,
+        "date":  display_date,
         "summary_text": " ".join(lines),
         "top_stories": top_stories,
         "security_focus": focus,
