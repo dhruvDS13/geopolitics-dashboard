@@ -1,15 +1,19 @@
 import httpx
+import asyncio
+import telegram
+
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-import asyncio 
 
 from app.config import settings
 from app.services.subscriber_service import add_user, get_users
-from app.services.summary_service import build_daily_summary, format_telegram_digest        
+from app.services.summary_service import format_telegram_digest
 
-import telegram
+
 print("Telegram version:", telegram.__version__)
 
+
+# ✅ CHECK TOKEN
 def telegram_ready() -> bool:
     return bool(settings.TELEGRAM_BOT_TOKEN)
 
@@ -45,7 +49,7 @@ async def send_telegram_message(message: str) -> dict:
     return {"ok": True, "message": "Message sent to all users"}
 
 
-# ✅ /start COMMAND (SUBSCRIBE USER)
+# ✅ /start COMMAND
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     add_user(user_id)
@@ -53,12 +57,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "✅ Connected! Sending today's global intelligence brief..."
     )
-    from app.main import NEWS_CACHE
+
     try:
+        from app.main import NEWS_CACHE
+
         summary = NEWS_CACHE.get("summary")
 
         if not summary or not summary.get("top_stories"):
-            await update.message.reply_text("⏳ First time loading, please wait and try again in a few seconds.")
+            await update.message.reply_text(
+                "⏳ First time loading, please wait and try again in a few seconds."
+            )
             return
 
         message = format_telegram_digest(summary)
@@ -67,15 +75,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         print(e)
-        await update.message.reply_text("⚠️ Unable to fetch news right now.")
+        await update.message.reply_text(
+            "⚠️ Unable to fetch news right now."
+        )
 
 
-# ✅ RUN BOT
-def run_bot():
-    app = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    
-
+# ✅ RUN TELEGRAM BOT (ASYNC + SAFE)
 async def run_bot_async():
     try:
         print("🚀 Starting Telegram bot...")
@@ -88,10 +93,8 @@ async def run_bot_async():
 
         print("✅ Telegram bot started successfully")
 
+        # ✅ Keep bot alive
         await asyncio.Event().wait()
 
     except Exception as e:
         print(f"❌ Telegram bot crash: {e}")
-
-    # Keep bot running (IMPORTANT)
-    await asyncio.Event().wait()

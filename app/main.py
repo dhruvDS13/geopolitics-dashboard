@@ -1,4 +1,5 @@
 from pathlib import Path
+import asyncio
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, Query, Request
@@ -11,17 +12,23 @@ from app.database import init_db, save_articles
 from app.keywords import CATEGORY_ORDER, KEYWORD_MAP
 from app.services.news_service import fetch_all_articles
 from app.services.summary_service import build_daily_summary, format_telegram_digest
-from app.services.telegram_service import send_telegram_message, telegram_ready
-import asyncio
-from app.services.telegram_service import run_bot_async
+from app.services.telegram_service import send_telegram_message, telegram_ready, run_bot_async
 
 
 BASE_DIR = Path(__file__).resolve().parent
+
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
 app = FastAPI(title=settings.APP_NAME)
+
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
+
+# ✅ Scheduler
 scheduler = AsyncIOScheduler()
+
+
+# ✅ Global Cache
 NEWS_CACHE = {
     "articles_by_category": {category: [] for category in CATEGORY_ORDER},
     "summary": {
@@ -34,6 +41,7 @@ NEWS_CACHE = {
 }
 
 
+# ✅ Filter Function
 def filter_articles(articles, search="", region="", category=""):
     search = search.lower().strip()
     filtered = articles
@@ -43,7 +51,10 @@ def filter_articles(articles, search="", region="", category=""):
         filtered = [
             article
             for article in filtered
-            if any(keyword in f"{article['title']} {article['description']}".lower() for keyword in region_keywords)
+            if any(
+                keyword in f"{article['title']} {article['description']}".lower()
+                for keyword in region_keywords
+            )
         ]
 
     if search:
@@ -56,6 +67,7 @@ def filter_articles(articles, search="", region="", category=""):
     return filtered
 
 
+# ✅ Refresh Cache
 async def refresh_news_cache():
     print("🔄 Refreshing news cache...")
 
@@ -69,9 +81,7 @@ async def refresh_news_cache():
         NEWS_CACHE["summary"] = build_daily_summary(all_articles)
 
         NEWS_CACHE["last_error"] = (
-            ""
-            if all_articles
-            else "No articles were fetched. Check RSS/API settings."
+            "" if all_articles else "No articles were fetched. Check RSS/API settings."
         )
 
     except Exception as e:
@@ -81,16 +91,20 @@ async def refresh_news_cache():
     return NEWS_CACHE
 
 
+# ✅ Scheduled Telegram Delivery
 async def scheduled_telegram_delivery():
     try:
         if not NEWS_CACHE["articles_by_category"].get("World"):
             await refresh_news_cache()
+
         digest = format_telegram_digest(NEWS_CACHE["summary"])
         await send_telegram_message(digest)
+
     except Exception as exc:
         NEWS_CACHE["last_error"] = f"Scheduled Telegram delivery failed: {exc}"
 
 
+# ✅ Startup
 @app.on_event("startup")
 async def startup_event():
     init_db()
@@ -109,17 +123,18 @@ async def startup_event():
     if not scheduler.running:
         scheduler.start()
 
-    # ✅ FIXED TELEGRAM BOT START
+    # 🚀 START TELEGRAM BOT (IMPORTANT)
     asyncio.create_task(run_bot_async())
 
 
-
+# ✅ Shutdown
 @app.on_event("shutdown")
 async def shutdown_event():
     if scheduler.running:
         scheduler.shutdown()
 
 
+# ✅ Home Route
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse(
@@ -132,6 +147,7 @@ async def home(request: Request):
     )
 
 
+# ✅ API: Get News
 @app.get("/api/news")
 async def get_news(
     search: str = Query(default=""),
@@ -146,6 +162,7 @@ async def get_news(
 
     articles = NEWS_CACHE["articles_by_category"].get(category, [])
     filtered = filter_articles(articles, search=search, region=region, category=category)
+
     return {
         "articles": filtered,
         "summary": NEWS_CACHE["summary"],
@@ -154,11 +171,16 @@ async def get_news(
     }
 
 
+# ✅ API: Refresh
 @app.post("/api/refresh")
 async def refresh_news():
     try:
         cache = await refresh_news_cache()
-        return {"ok": True, "summary": cache["summary"], "message": "News refreshed successfully."}
+        return {
+            "ok": True,
+            "summary": cache["summary"],
+            "message": "News refreshed successfully.",
+        }
     except Exception as exc:
         NEWS_CACHE["last_error"] = f"Failed to refresh news: {exc}"
         return JSONResponse(
@@ -167,15 +189,19 @@ async def refresh_news():
         )
 
 
+# ✅ API: Send Telegram
 @app.post("/api/send-telegram")
 async def send_digest():
     try:
         if not NEWS_CACHE["articles_by_category"].get("World"):
             await refresh_news_cache()
+
         digest = format_telegram_digest(NEWS_CACHE["summary"])
         result = await send_telegram_message(digest)
+
         status_code = 200 if result["ok"] else 400
         return JSONResponse(status_code=status_code, content=result)
+
     except Exception as exc:
         return JSONResponse(
             status_code=500,
