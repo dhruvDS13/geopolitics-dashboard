@@ -12,7 +12,7 @@ from app.database import init_db, save_articles
 from app.keywords import CATEGORY_ORDER, KEYWORD_MAP
 from app.services.news_service import fetch_all_articles
 from app.services.summary_service import build_daily_summary, format_telegram_digest
-from app.services.telegram_service import send_telegram_message, telegram_ready, run_bot_async
+from app.services.telegram_service import send_telegram_message, telegram_ready
 from telegram import Update
 from app.services.telegram_service import telegram_app
 
