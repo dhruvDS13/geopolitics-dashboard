@@ -88,13 +88,15 @@ async def run_bot_async():
         app = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
         app.add_handler(CommandHandler("start", start))
 
+        # ✅ Correct lifecycle (no Updater, no run_polling)
         await app.initialize()
         await app.start()
+        await app.bot.initialize()
 
         print("✅ Telegram bot started successfully")
 
-        # ✅ Keep bot alive
-        await asyncio.Event().wait()
+        # Start polling properly (v20 way)
+        await app.start_polling()
 
     except Exception as e:
         print(f"❌ Telegram bot crash: {e}")
