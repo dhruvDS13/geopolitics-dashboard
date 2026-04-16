@@ -77,13 +77,21 @@ def run_bot():
     
 
 async def run_bot_async():
-    app = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
+    try:
+        print("🚀 Starting Telegram bot...")
 
-    await app.initialize()
-    await app.start()
+        app = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
+        app.add_handler(CommandHandler("start", start))
 
-    print("✅ Telegram bot started successfully")
+        await app.initialize()
+        await app.start()
+
+        print("✅ Telegram bot started successfully")
+
+        await asyncio.Event().wait()
+
+    except Exception as e:
+        print(f"❌ Telegram bot crash: {e}")
 
     # Keep bot running (IMPORTANT)
     await asyncio.Event().wait()
