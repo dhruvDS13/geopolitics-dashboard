@@ -13,12 +13,11 @@ from app.services.summary_service import format_telegram_digest
 print("Telegram version:", telegram.__version__)
 
 
-# ✅ CHECK TOKEN
 def telegram_ready() -> bool:
     return bool(settings.TELEGRAM_BOT_TOKEN)
 
 
-# ✅ SEND MESSAGE TO ALL USERS
+# ✅ SEND MESSAGE
 async def send_telegram_message(message: str) -> dict:
     if not telegram_ready():
         return {"ok": False, "message": "Telegram token missing"}
@@ -49,7 +48,7 @@ async def send_telegram_message(message: str) -> dict:
     return {"ok": True, "message": "Message sent to all users"}
 
 
-# ✅ /start COMMAND
+# ✅ START COMMAND
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     add_user(user_id)
@@ -64,21 +63,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         summary = NEWS_CACHE.get("summary")
 
         if not summary or not summary.get("top_stories"):
-            await update.message.reply_text(
-                "⏳ First time loading, please wait and try again in a few seconds."
-            )
+            await update.message.reply_text("⏳ Loading news, try again in a moment...")
             return
 
         message = format_telegram_digest(summary)
-
         await update.message.reply_text(message)
 
-    except Exception as e:
-        print(e)
-        await update.message.reply_text(
-            "⚠️ Unable to fetch news right now."
-        )
+    except Exception:
+        await update.message.reply_text("⚠️ Unable to fetch news right now.")
 
+
+# ✅ GLOBAL TELEGRAM APP (WEBHOOK USE)
+telegram_app = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
+telegram_app.add_handler(CommandHandler("start", start))
 
 # ✅ RUN TELEGRAM BOT (ASYNC + SAFE)
 async def run_bot_async():

@@ -13,7 +13,8 @@ from app.keywords import CATEGORY_ORDER, KEYWORD_MAP
 from app.services.news_service import fetch_all_articles
 from app.services.summary_service import build_daily_summary, format_telegram_digest
 from app.services.telegram_service import send_telegram_message, telegram_ready, run_bot_async
-
+from telegram import Update
+from app.services.telegram_service import telegram_app
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -124,7 +125,17 @@ async def startup_event():
         scheduler.start()
 
     # 🚀 START TELEGRAM BOT (IMPORTANT)
-    asyncio.create_task(run_bot_async())
+
+@app.post("/webhook")
+async def telegram_webhook(request: Request):
+    data = await request.json()
+
+    update = Update.de_json(data, telegram_app.bot)
+
+    await telegram_app.initialize()
+    await telegram_app.process_update(update)
+
+    return {"ok": True}
 
 
 # ✅ Shutdown
