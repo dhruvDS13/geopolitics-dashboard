@@ -12,8 +12,8 @@ from app.keywords import CATEGORY_ORDER, KEYWORD_MAP
 from app.services.news_service import fetch_all_articles
 from app.services.summary_service import build_daily_summary, format_telegram_digest
 from app.services.telegram_service import send_telegram_message, telegram_ready
-import threading
-from app.services.telegram_service import run_bot
+import asyncio
+from app.services.telegram_service import run_bot_async
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -109,13 +109,8 @@ async def startup_event():
     if not scheduler.running:
         scheduler.start()
 
-    def start_bot():
-        try:
-            run_bot()
-        except Exception as e:
-            print(f"Telegram bot error: {e}")
-
-    threading.Thread(target=start_bot, daemon=True).start()
+    # ✅ FIXED TELEGRAM BOT START
+    asyncio.create_task(run_bot_async())
 
 
 

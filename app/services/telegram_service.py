@@ -1,12 +1,14 @@
 import httpx
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-
+import asyncio 
 
 from app.config import settings
 from app.services.subscriber_service import add_user, get_users
 from app.services.summary_service import build_daily_summary, format_telegram_digest        
 
+import telegram
+print("Telegram version:", telegram.__version__)
 
 def telegram_ready() -> bool:
     return bool(settings.TELEGRAM_BOT_TOKEN)
@@ -72,4 +74,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def run_bot():
     app = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.run_polling()
+    
+
+async def run_bot_async():
+    app = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+
+    await app.initialize()
+    await app.start()
+
+    print("✅ Telegram bot started successfully")
+
+    # Keep bot running (IMPORTANT)
+    await asyncio.Event().wait()
