@@ -108,23 +108,26 @@ async def scheduled_telegram_delivery():
 # ✅ Startup
 @app.on_event("startup")
 async def startup_event():
-    init_db()
+    try:
+        init_db()
+        await refresh_news_cache()
 
-    await refresh_news_cache()
+        scheduler.add_job(
+            scheduled_telegram_delivery,
+            "cron",
+            hour="*/6",
+            minute=0,
+            id="telegram_every_6_hours",
+            replace_existing=True,
+        )
 
-    scheduler.add_job(
-        scheduled_telegram_delivery,
-        "cron",
-        hour=settings.DAILY_SUMMARY_HOUR,
-        minute=settings.DAILY_SUMMARY_MINUTE,
-        id="daily_telegram_summary",
-        replace_existing=True,
-    )
+        if not scheduler.running:
+            scheduler.start()
 
-    if not scheduler.running:
-        scheduler.start()
+        print("✅ Startup completed successfully")
 
-    # 🚀 START TELEGRAM BOT (IMPORTANT)
+    except Exception as e:
+        print(f"❌ Startup error: {e}")
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
